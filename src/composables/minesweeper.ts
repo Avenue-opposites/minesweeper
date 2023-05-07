@@ -207,6 +207,9 @@ export default class Minesweeper {
     if (block.mine) {
       this.onGameOver()
       this.state.status = 'lost'
+      setTimeout(() => {
+        alert('Boom 失败了！')
+      }, 10)
       this.showAllMines()
     }
     this.expandZero(block)
