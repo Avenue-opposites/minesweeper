@@ -1,13 +1,7 @@
 <script setup lang="ts">
-interface BlockState {
-  x: number
-  y: number
-  revealed: boolean
-  mine: boolean
-  flagged: boolean
-  adjacentMines: number
-}
-const SIZE = 10
+import type { BlockState } from '~/types'
+
+const SIZE = 5
 const fakeArray = { length: SIZE }
 const directions = [
   [-1, -1],
@@ -46,9 +40,10 @@ const state = reactive<BlockState[][]>(Array.from(
 ),
 )
 // 是否生成地雷
-let mineGenerated = false
+const mineGenerated = ref(false)
 // 是否为开发模式
 const dev = ref(false)
+watchEffect(checkGameState)
 // 更新数字
 function updateNumbers() {
   for (let y = 0; y < state.length; y++) {
@@ -79,8 +74,10 @@ function generateMines(initial: BlockState, probability: number) {
 }
 // 生成对应格子的样式
 function getBlockClass(block: BlockState) {
+  if (block.flagged)
+    return 'bg-gray-300'
   if (!block.revealed)
-    return 'bg-gray-500/10'
+    return 'bg-gray-500/10 hover:bg-gray/50'
   return block.mine ? 'text-red-500' : numberColors[block.adjacentMines]
 }
 // 展开周围没有地雷的格子
@@ -89,7 +86,7 @@ function expandZero(block: BlockState) {
   if (block.adjacentMines)
     return
   getSiblings(block).forEach((aroundBlock) => {
-    if (aroundBlock.revealed)
+    if (aroundBlock.revealed || aroundBlock.flagged)
       return
     // 周围的格子全部翻开
     aroundBlock.revealed = true
@@ -109,28 +106,34 @@ function getSiblings(block: BlockState) {
     return state[y][x]
   }).filter(Boolean) as BlockState[]
 }
+function checkGameState() {
+  if (!mineGenerated.value)
+    return
+  const blocks = state.flat()
+  const gameState = blocks.every(block => block.revealed || (block.flagged && block.mine))
+  if (gameState)
+    alert('游戏胜利!')
+}
 function onClick(block: BlockState) {
   // 如果没有生成地雷
-  if (!mineGenerated) {
+  if (!mineGenerated.value) {
     // 生成地雷
     generateMines(block, 0.2)
-    mineGenerated = true
+    mineGenerated.value = true
   }
-  // 点到地雷
-  if (block.mine) {
-    state.forEach((row) => {
-      row.forEach((block) => {
-        if (block.revealed)
-          return
-        block.revealed = true
-      })
-    })
-    alert('Boom 游戏结束!')
-  }
-  if (block.revealed)
+
+  if (block.revealed || block.flagged)
     return
+  // 点到地雷
+  if (block.mine)
+    alert('Boom 游戏结束!')
   expandZero(block)
   block.revealed = true
+}
+function onRightClick(block: BlockState) {
+  if (block.revealed)
+    return
+  block.flagged = !block.flagged
 }
 </script>
 
@@ -144,9 +147,13 @@ function onClick(block: BlockState) {
       :class="getBlockClass(block)"
       flex="~" border="gray-400/10 1"
       m="2px"
-      h-10 w-10 items-center justify-center hover="bg-gray-500/50"
+      h-10 w-10 items-center justify-center
       @click="onClick(block)"
+      @contextmenu.prevent="onRightClick(block)"
     >
+      <template v-if="block.flagged">
+        <div i-mdi-flag text-red />
+      </template>
       <template v-if="block.revealed || dev">
         <div v-if="block.mine" i-mdi:mine />
         <div v-else>
