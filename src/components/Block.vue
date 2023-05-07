@@ -36,6 +36,7 @@ function getBlockClass(block: BlockState) {
     w-10
     items-center
     justify-center
+    font-900
   >
     <template v-if="$props.block.flagged">
       <div i-mdi-flag text-red />

@@ -1,8 +1,20 @@
 import type { BlockState } from '~/types'
 
+interface MinesweeperState {
+  board: BlockState[][]
+  mineGenerated: boolean
+  gameState: 'play' | 'won' | 'lost'
+}
+
 export default class Minesweeper {
-  state: Ref<BlockState[][]> = ref([])
-  mineGenerated = false
+  // 状态
+  protected state = reactive<MinesweeperState>({
+    board: [],
+    mineGenerated: false,
+    gameState: 'play',
+  })
+
+  // 方位
   static directions = [
     [-1, -1],
     [0, -1],
@@ -14,13 +26,35 @@ export default class Minesweeper {
     [-1, 0],
   ]
 
-  constructor(protected row: number, protected column: number, protected minesGenerateProbability: number) {
+  constructor(protected row: number, protected column: number, protected mines: number) {
     this.reset()
   }
 
+  get board() {
+    return this.state.board
+  }
+
+  get blocks() {
+    return this.state.board.flat() as BlockState[]
+  }
+
+  get mineGenerated() {
+    return this.state.mineGenerated
+  }
+
+  get gameState() {
+    return this.state.gameState
+  }
+
+  get minesCount() {
+    return this.mines
+  }
+
+  // 重置
   reset() {
-    this.mineGenerated = false
-    this.state.value = Array.from(
+    this.state.gameState = 'play'
+    this.state.mineGenerated = false
+    this.state.board = Array.from(
       { length: this.column },
       (_, y) => Array.from(
         { length: this.row },
@@ -38,9 +72,9 @@ export default class Minesweeper {
 
   // 更新数字
   protected updateNumbers() {
-    for (let y = 0; y < this.state.value.length; y++) {
-      for (let x = 0; x < this.state.value[y].length; x++) {
-        const block = this.state.value[y][x]
+    for (let y = 0; y < this.board.length; y++) {
+      for (let x = 0; x < this.board[y].length; x++) {
+        const block = this.board[y][x]
         // 当前格子有地雷就无视
         if (block.mine)
           continue
@@ -52,16 +86,26 @@ export default class Minesweeper {
     }
   }
 
+  random(min: number, max: number) {
+    return Math.floor(Math.random() * (max - min + 1) + min)
+  }
+
   // 生成地雷
-  generateMines(initial: BlockState, probability: number) {
-    for (const row of this.state.value) {
-      for (const block of row) {
+  generateMines(initial: BlockState) {
+    const placeRandom = () => {
+      const x = this.random(0, this.column - 1)
+      const y = this.random(0, this.row - 1)
+      const block = this.board[y][x]
       // 第一个附近一圈不会生成地雷
-        if (Math.abs(initial.x - block.x) <= 1 || Math.abs(initial.y - block.y) <= 1)
-          continue
-        block.mine = Math.random() < probability
-      }
+      if (Math.abs(initial.x - block.x) <= 1 || Math.abs(initial.y - block.y) <= 1)
+        placeRandom()
+      else if (block.mine)
+        placeRandom()
+      else
+        block.mine = true
     }
+    for (let i = 0; i < this.mines; i++)
+      placeRandom()
     // 生成数字
     this.updateNumbers()
   }
@@ -90,41 +134,48 @@ export default class Minesweeper {
       // 判断是否超出边界
       if (x < 0 || x >= this.row || y < 0 || y >= this.column)
         return null
-      return this.state.value[y][x]
+      return this.board[y][x]
     }).filter(Boolean) as BlockState[]
+  }
+
+  showAllMines() {
+    this.board.flat().forEach((block) => {
+      if (block.mine)
+        block.revealed = true
+    })
   }
 
   checkGameState() {
     if (!this.mineGenerated)
       return
-    const blocks = this.state.value.flat()
-    const gameState = blocks.every(block => block.revealed || (block.flagged && block.mine))
-    if (gameState)
-      alert('游戏胜利!')
+    const blocks = this.blocks
+    const state = blocks.every(block => block.revealed || (block.flagged && block.mine))
+    if (state)
+      this.state.gameState = 'won'
   }
 
   onClick(block: BlockState) {
     // 如果没有生成地雷
     if (!this.mineGenerated) {
       // 生成地雷
-      this.generateMines(block, this.minesGenerateProbability)
-      this.mineGenerated = true
+      this.generateMines(block)
+      this.state.mineGenerated = true
     }
-
-    if (block.revealed || block.flagged)
+    // 如果翻开或者被标记或者游戏结束
+    if (block.revealed || block.flagged || this.gameState !== 'play')
       return
     // 点到地雷
-    if (block.mine)
-      alert('Boom 游戏结束!')
+    if (block.mine) {
+      this.state.gameState = 'lost'
+      this.showAllMines()
+    }
     this.expandZero(block)
     block.revealed = true
-    this.checkGameState()
   }
 
   onRightClick(block: BlockState) {
-    if (block.revealed)
+    if (block.revealed || this.gameState !== 'play')
       return
     block.flagged = !block.flagged
-    this.checkGameState()
   }
 }
