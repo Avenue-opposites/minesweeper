@@ -12,6 +12,7 @@
     "postinstall": "npx simple-git-hooks"
   },
   "dependencies": {
+    "@types/canvas-confetti": "^1.6.0",
     "@vueuse/core": "^9.13.0",
     "vue": "^3.2.47",
     "vue-router": "^4.1.6"
@@ -26,6 +27,7 @@
     "@vitejs/plugin-vue": "^4.1.0",
     "@vue-macros/volar": "^0.9.5",
     "@vue/test-utils": "^2.3.2",
+    "canvas-confetti": "^1.6.0",
     "eslint": "^8.38.0",
     "jsdom": "^21.1.1",
     "lint-staged": "^13.2.1",

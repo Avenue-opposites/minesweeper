@@ -149,7 +149,7 @@ export default class Minesweeper {
     if (!this.mineGenerated)
       return
     const blocks = this.blocks
-    const state = blocks.every(block => block.revealed || (block.flagged && block.mine))
+    const state = blocks.every(block => block.revealed || (block.flagged && block.mine) || (!block.flagged && block.mine))
     if (state)
       this.state.gameState = 'won'
   }

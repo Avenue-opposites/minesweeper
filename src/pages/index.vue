@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import Block from '~/components/Block.vue'
 import { isDev, toggleDev } from '~/composables'
 import Minesweeper from '~/composables/minesweeper'
 
-const minesweeper = new Minesweeper(10, 10, 10)
-// const mineCount = computed(() => minesweeper.)
-const board = minesweeper.board
+const isShow = useConfetti(3000)
+const minesweeper = new Minesweeper(10, 10, 30)
+const board = computed(() => minesweeper.board)
 watchEffect(() => {
   // 检查游戏状态
   minesweeper.checkGameState()
+})
+watch(() => minesweeper.gameState, (value) => {
+  isShow.value = value === 'won'
 })
 </script>
 
