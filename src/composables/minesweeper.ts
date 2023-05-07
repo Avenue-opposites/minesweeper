@@ -1,17 +1,21 @@
 import type { BlockState } from '~/types'
 
+type GameState = 'play' | 'won' | 'lost'
 interface MinesweeperState {
   board: BlockState[][]
   mineGenerated: boolean
-  gameState: 'play' | 'won' | 'lost'
+  status: GameState
+  startTime: number
+  endTime?: number
 }
 
 export default class Minesweeper {
   // 状态
-  protected state = reactive<MinesweeperState>({
+  state = reactive<MinesweeperState>({
     board: [],
     mineGenerated: false,
-    gameState: 'play',
+    status: 'play',
+    startTime: 0,
   })
 
   // 方位
@@ -43,16 +47,32 @@ export default class Minesweeper {
   }
 
   get gameState() {
-    return this.state.gameState
+    return this.state.status
   }
 
   get minesCount() {
     return this.mines
   }
 
+  get startTime() {
+    return this.state.startTime
+  }
+
+  get endTime() {
+    return this.state.endTime
+  }
+
+  get flags() {
+    let count = 0
+    this.blocks.forEach(block => block.flagged && count++)
+    return count
+  }
+
   // 重置
   reset() {
-    this.state.gameState = 'play'
+    this.state.startTime = Date.now()
+    this.state.endTime = 0
+    this.state.status = 'play'
     this.state.mineGenerated = false
     this.state.board = Array.from(
       { length: this.column },
@@ -97,15 +117,19 @@ export default class Minesweeper {
       const y = this.random(0, this.row - 1)
       const block = this.board[y][x]
       // 第一个附近一圈不会生成地雷
-      if (Math.abs(initial.x - block.x) <= 1 || Math.abs(initial.y - block.y) <= 1)
-        placeRandom()
+      if (Math.abs(initial.x - block.x) <= 1 && Math.abs(initial.y - block.y) <= 1)
+        return false
       else if (block.mine)
-        placeRandom()
+        return false
       else
-        block.mine = true
+        return block.mine = true
     }
-    for (let i = 0; i < this.mines; i++)
-      placeRandom()
+    for (let i = 0; i < this.mines; i++) {
+      let flag = placeRandom()
+      while (!flag)
+        flag = placeRandom()
+    }
+
     // 生成数字
     this.updateNumbers()
   }
@@ -150,8 +174,23 @@ export default class Minesweeper {
       return
     const blocks = this.blocks
     const state = blocks.every(block => block.revealed || (block.flagged && block.mine) || (!block.flagged && block.mine))
-    if (state)
-      this.state.gameState = 'won'
+    if (state) {
+      this.state.status = 'won'
+      this.onGameOver()
+    }
+  }
+
+  protected autoExpand(block: BlockState) {
+    const siblings = this.getSiblings(block)
+    siblings.forEach((block) => {
+      if (block.revealed || block.flagged)
+        return
+      if (block.mine) {
+        block.flagged = true
+        return
+      }
+      block.revealed = true
+    })
   }
 
   onClick(block: BlockState) {
@@ -166,7 +205,8 @@ export default class Minesweeper {
       return
     // 点到地雷
     if (block.mine) {
-      this.state.gameState = 'lost'
+      this.onGameOver()
+      this.state.status = 'lost'
       this.showAllMines()
     }
     this.expandZero(block)
@@ -177,5 +217,14 @@ export default class Minesweeper {
     if (block.revealed || this.gameState !== 'play')
       return
     block.flagged = !block.flagged
+  }
+
+  ondblclick(block: BlockState) {
+    if (block.revealed)
+      this.autoExpand(block)
+  }
+
+  onGameOver() {
+    this.state.endTime = Date.now()
   }
 }
